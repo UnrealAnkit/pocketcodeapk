@@ -1,0 +1,46 @@
+import { spawn } from 'node:child_process';
+
+export interface TunnelProvider {
+  name: string;
+  start(localPort: number): Promise<{ publicHost: string; publicPort: number }>;
+  stop(): Promise<void>;
+}
+
+async function which(bin: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const cmd = process.platform === 'win32' ? 'where' : 'which';
+    const p = spawn(cmd, [bin]);
+    let out = '';
+    p.stdout.on('data', (d) => out += d.toString());
+    p.on('close', (code) => resolve(code === 0 ? out.trim().split('\n')[0] : null));
+    p.on('error', () => resolve(null));
+  });
+}
+
+export type TunnelPref = 'auto' | 'local' | 'tailscale' | 'tailscale-ip' | 'devtunnel' | 'ssh' | 'ngrok' | 'cloudflare';
+
+export async function detect(preferred: TunnelPref, opts?: { localHost?: string }): Promise<TunnelProvider> {
+  if (preferred === 'local') {
+    return new (await import('./local')).LocalTunnel(opts?.localHost);
+  }
+  if (preferred === 'auto') {
+    // ponytail: devtunnel is the CodeMote default — zero pre-existing setup beyond
+    // `devtunnel user login`, matching "scan QR, done" onboarding. Tailscale requires
+    // both devices enrolled in the same tailnet first. Keep tailscale available as an
+    // explicit remoteDev.preferredTunnel=tailscale setting but don't auto-select it.
+    if (await which('devtunnel')) return new (await import('./devtunnel')).DevTunnel();
+    if (await which('tailscale')) return new (await import('./tailscale-ip')).TailscaleIP();
+    if (await which('ssh')) return new (await import('./ssh')).SSHTunnel();
+    // Headless / bare boxes: fall back to LAN local rather than hard-failing.
+    return new (await import('./local')).LocalTunnel(opts?.localHost);
+  }
+  if (preferred === 'tailscale') return new (await import('./tailscale')).Tailscale();
+  if (preferred === 'tailscale-ip') return new (await import('./tailscale-ip')).TailscaleIP();
+  if (preferred === 'devtunnel') return new (await import('./devtunnel')).DevTunnel();
+  // ngrok/cloudflare are explicit-only, same treatment as plain 'tailscale' and
+  // 'ssh' -- both need an external binary (and ngrok usually an auth token),
+  // so we don't want 'auto' silently picking them over the zero-setup options.
+  if (preferred === 'ngrok') return new (await import('./ngrok')).NgrokTunnel();
+  if (preferred === 'cloudflare') return new (await import('./cloudflare')).CloudflareTunnel();
+  return new (await import('./ssh')).SSHTunnel();
+}

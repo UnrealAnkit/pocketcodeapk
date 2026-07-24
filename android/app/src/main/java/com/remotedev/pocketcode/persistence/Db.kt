@@ -1,0 +1,33 @@
+package com.remotedev.pocketcode.persistence
+
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.RoomDatabase
+import androidx.room.Dao
+import kotlinx.coroutines.flow.Flow
+
+@Entity(tableName = "transcript")
+data class Transcript(@PrimaryKey(autoGenerate = true) val id: Long = 0, val session: String, val blob: ByteArray, val ts: Long)
+@Entity(tableName = "agent_event")
+data class StoredEvent(@PrimaryKey(autoGenerate = true) val id: Long = 0, val session: String, val kind: String, val summary: String, val ts: Long)
+/** A local note that can be sent to the active terminal session. */
+@Entity(tableName = "note")
+data class Note(@PrimaryKey(autoGenerate = true) val id: Long = 0, val content: String, val updatedAt: Long)
+
+@Dao
+interface AppDao {
+    @Insert suspend fun addTranscript(t: Transcript): Long
+    @Query("SELECT * FROM transcript WHERE session = :s ORDER BY ts") fun streamTranscript(s: String): Flow<List<Transcript>>
+    @Query("SELECT * FROM agent_event WHERE session = :s ORDER BY ts") fun events(s: String): Flow<List<StoredEvent>>
+    @Insert suspend fun addEvent(e: StoredEvent)
+    @Query("SELECT * FROM note ORDER BY updatedAt DESC") fun notes(): Flow<List<Note>>
+    @Insert suspend fun addNote(note: Note): Long
+    @Query("UPDATE note SET content = :content, updatedAt = :updatedAt WHERE id = :id") suspend fun updateNote(id: Long, content: String, updatedAt: Long)
+    @Query("DELETE FROM note WHERE id = :id") suspend fun deleteNote(id: Long)
+}
+
+@Database(entities = [Transcript::class, StoredEvent::class, Note::class], version = 2, exportSchema = false)
+abstract class Db : RoomDatabase() { abstract fun dao(): AppDao }

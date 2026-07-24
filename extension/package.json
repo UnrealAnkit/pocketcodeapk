@@ -1,0 +1,139 @@
+{
+  "name": "remotedev-pocketcode",
+  "displayName": "RemoteDev (PocketCode)",
+  "description": "Control this editor from your phone. Peer-to-peer, zero relay.",
+  "version": "0.1.1",
+  "publisher": "pocketcode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "remote",
+    "mobile",
+    "android",
+    "tunnel",
+    "pairing",
+    "qr"
+  ],
+  "activationEvents": [
+    "onCommand:remotedev.start",
+    "onCommand:remotedev.stop"
+  ],
+  "main": "./out/extension.js",
+  "bin": {
+    "pocketcode-cli": "./out/cli.js"
+  },
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cgchiraggupta/pocketcode.git",
+    "directory": "extension"
+  },
+  "bugs": {
+    "url": "https://github.com/cgchiraggupta/pocketcode/issues"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "remotedev.start",
+        "title": "RemoteDev: Start Mobile Session",
+        "category": "RemoteDev"
+      },
+      {
+        "command": "remotedev.stop",
+        "title": "RemoteDev: Stop Session",
+        "category": "RemoteDev"
+      },
+      {
+        "command": "remotedev.disconnectAll",
+        "title": "RemoteDev: Disconnect All Devices",
+        "category": "RemoteDev"
+      },
+      {
+        "command": "remotedev.showQR",
+        "title": "RemoteDev: Show Pairing QR",
+        "category": "RemoteDev"
+      },
+      {
+        "command": "remotedev.snapshot",
+        "title": "RemoteDev: Snapshot (before agent run)",
+        "category": "RemoteDev"
+      },
+      {
+        "command": "remotedev.revert",
+        "title": "RemoteDev: Revert Last Snapshot",
+        "category": "RemoteDev"
+      }
+    ],
+    "configuration": {
+      "title": "RemoteDev",
+      "properties": {
+        "remoteDev.tokenExpiryMinutes": {
+          "type": "number",
+          "default": 1440,
+          "minimum": 5,
+          "description": "Inactivity expiry for pairing tokens (minutes)."
+        },
+        "remoteDev.preferredTunnel": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "tailscale",
+            "tailscale-ip",
+            "devtunnel",
+            "ssh"
+          ],
+          "default": "devtunnel"
+        },
+        "remoteDev.sshTarget": {
+          "type": "string",
+          "default": "",
+          "description": "SSH user@host target for SSH reverse tunnel forwarding."
+        },
+        "remoteDev.sshRemotePort": {
+          "type": "number",
+          "default": 0,
+          "description": "Remote port to listen on. 0 = random."
+        },
+        "remoteDev.localPort": {
+          "type": "number",
+          "default": 0,
+          "description": "0 = random ephemeral port."
+        },
+        "remoteDev.maxTerminals": {
+          "type": "number",
+          "default": 16
+        }
+      }
+    }
+  },
+  "scripts": {
+    "prebuild": "mkdir -p out/pty && cp src/pty/pty-helper.py out/pty/pty-helper.py",
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "lint": "eslint src --ext .ts",
+    "test": "node --test $(find out -name '*.test.js')",
+    "cli": "node out/cli.js"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.3",
+    "simple-git": "^3.22.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "@vscode/vsce": "^2.22.0",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.0"
+  }
+}
