@@ -2,7 +2,6 @@ package com.remotedev.pocketcode.pairing
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageAnalysis
@@ -66,7 +65,6 @@ fun QrScannerScreen(onPaired: (PairingQR) -> Unit, onManual: () -> Unit) {
                     val preview = androidx.camera.core.Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
                     val analyzer = ImageAnalysis.Builder().build().also {
                         it.setAnalyzer(analysisExecutor, QrAnalyzer { raw ->
-                            Log.d("PocketCodeQr", "Decoded QR payload: ${raw.take(512)}")
                             val pairing = QrParser.parse(raw)
                             mainExecutor.execute {
                                 if (pairing == null) {
