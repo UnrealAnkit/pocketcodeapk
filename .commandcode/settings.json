@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(node --version)",
+      "Shell(npm:*)",
+      "Shell(mkdir:*)",
+      "Shell(rm:*)",
+      "Shell(npx create-expo-app@latest mobile --template blank-typescript -- --no-install 2 >& 1)",
+      "Shell(npx create-expo-app@latest mobile --template blank-typescript --no-install 2 >& 1)",
+      "Shell(yes:*)",
+      "Shell(ls:*)",
+      "Shell(npx expo install expo-router expo-camera expo-local-authentication expo-secure-store expo-notifications expo-sqlite expo-speech-recognition expo-constants expo-dev-client expo-updates react-native-webview react-native-gesture-handler react-native-reanimated react-native-safe-area-context react-native-screens zustand 2 >& 1)",
+      "Shell(cp:*)",
+      "Shell(node scripts/bundle-xterm.js)",
+      "Shell(npx tsc --noEmit 2 >& 1)",
+      "Shell(npx expo install expo-asset expo-file-system 2 >& 1)",
+      "Shell(./node_modules/.bin/tsc:*)",
+      "Shell(rm /Users/sameerposwal/coding/hackathons/pocketcodeapk/mobile/src/terminal/xterm-html.ts 2>/dev/null; cd /Users/sameerposwal/coding/hackathons/pocketcodeapk/mobile && npx tsc --noEmit 2>&1 | head -60)",
+      "Shell(find:*)",
+      "Shell(which:*)",
+      "Shell(adb:*)",
+      "Shell(java:*)",
+      "Shell(npx eas-cli --version 2 > /dev/null)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

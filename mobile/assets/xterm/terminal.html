@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<link rel="stylesheet" href="xterm.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0F0F10; overflow: hidden; }
+  #term { height: 100%; width: 100%; }
+  .xterm { padding: 4px 8px; }
+  .xterm .xterm-viewport { overscroll-behavior: contain; }
+</style>
+</head>
+<body>
+<div id="term"></div>
+<script src="xterm.js"></script>
+<script src="addon-fit.js"></script>
+<script>
+  const term = new Terminal({
+    fontFamily: 'monospace',
+    fontSize: 12,
+    rescaleOverlappingGlyphs: true,
+    convertEol: false,
+    scrollback: 5000,
+    theme: {
+      background: '#0F0F10',
+      foreground: '#E8E3DD',
+      cursor: '#E8E3DD',
+      black: '#1E1E1E', red: '#EF4444', green: '#22C55E', yellow: '#EAB308',
+      blue: '#3B82F6', magenta: '#A855F7', cyan: '#06B6D4', white: '#E5E5E5',
+      brightBlack: '#6B7280', brightRed: '#F87171', brightGreen: '#4ADE80', brightYellow: '#FACC15',
+      brightBlue: '#60A5FA', brightMagenta: '#C084FC', brightCyan: '#22D3EE', brightWhite: '#F5F5F5',
+    },
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('term'));
+
+  // Full-screen CLIs (OpenCode/Grok) use the alternate buffer -- suppress so
+  // mobile users can scroll TUIs in the normal buffer.
+  const alternateBufferModes = new Set([47, 1047, 1049]);
+  function suppressAlternateBuffer(params) {
+    return params.some(function(param) {
+      return typeof param === 'number' && alternateBufferModes.has(param);
+    });
+  }
+  term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, suppressAlternateBuffer);
+  term.parser.registerCsiHandler({ prefix: '?', final: 'l' }, suppressAlternateBuffer);
+
+  let resizeScheduled = false;
+  let resizeTimer = null;
+  let reportedCols = -1;
+  let reportedRows = -1;
+
+  function reportSizeIfChanged() {
+    resizeScheduled = false;
+    if (term.cols === reportedCols && term.rows === reportedRows) return;
+    reportedCols = term.cols;
+    reportedRows = term.rows;
+    postMessage({
+      type: 'resize',
+      cols: term.cols,
+      rows: term.rows,
+    });
+  }
+
+  function postMessage(msg) {
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  function fit() {
+    try {
+      fitAddon.fit();
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        if (!resizeScheduled) {
+          resizeScheduled = true;
+          requestAnimationFrame(reportSizeIfChanged);
+        }
+      }, 120);
+    } catch (e) {}
+  }
+  fit();
+  window.addEventListener('resize', fit);
+  new ResizeObserver(fit).observe(document.getElementById('term'));
+
+  function b64ToUtf8(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  window.writeChunk = function(b64) { term.write(b64ToUtf8(b64)); };
+  window.resetAndWrite = function(b64) { term.reset(); term.write(b64ToUtf8(b64)); };
+
+  // Touch scrolling -- translate finger drag into xterm viewport movement
+  let lastTouchY = null;
+  let touchRemainder = 0;
+  term.element.addEventListener('touchstart', function(event) {
+    if (event.touches.length !== 1) return;
+    lastTouchY = event.touches[0].clientY;
+    touchRemainder = 0;
+  }, { capture: true, passive: true });
+  term.element.addEventListener('touchmove', function(event) {
+    if (lastTouchY === null || event.touches.length !== 1) return;
+    const nextY = event.touches[0].clientY;
+    touchRemainder += lastTouchY - nextY;
+    lastTouchY = nextY;
+    const cellHeight = term.element.getBoundingClientRect().height / Math.max(term.rows, 1);
+    const lines = Math.trunc(touchRemainder / Math.max(cellHeight, 1));
+    if (lines !== 0) {
+      term.scrollLines(lines);
+      touchRemainder -= lines * cellHeight;
+    }
+    event.preventDefault();
+  }, { capture: true, passive: false });
+  term.element.addEventListener('touchend', function() {
+    lastTouchY = null;
+    touchRemainder = 0;
+  }, { capture: true, passive: true });
+
+  term.onData(function(data) {
+    postMessage({ type: 'input', data: data });
+  });
+
+  // Signal that the terminal is ready
+  window.addEventListener('load', function() {
+    postMessage({ type: 'ready' });
+  });
+</script>
+</body>
+</html>

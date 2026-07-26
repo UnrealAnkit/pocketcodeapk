@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "expo-foreground-service",
+    "platforms": ["android"],
+    "android": {
+      "modules": [
+        "com.pocketcode.foregroundservice.ForegroundServiceModule"
+      ]
+    }
+  }
+}

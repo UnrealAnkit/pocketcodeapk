@@ -1,0 +1,12 @@
+{
+  "name": "expo-foreground-service",
+  "version": "0.1.0",
+  "description": "Android foreground service for PocketCode WebSocket keepalive",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*"
+  },
+  "keywords": ["expo", "foreground-service", "android"]
+}

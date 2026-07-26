@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "PocketCode",
+    "slug": "pocketcode",
+    "version": "0.1.0",
+    "scheme": "pocketcode",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.remotedev.pocketcode",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Authenticate to access your remote development machine"
+      }
+    },
+    "android": {
+      "package": "com.remotedev.pocketcode",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0F10",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-local-authentication",
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-speech-recognition",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow PocketCode to access your camera for QR scanning",
+          "microphonePermission": "Allow PocketCode to access your microphone",
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#D97757",
+          "defaultChannel": "default"
+        }
+      ],
+      "expo-updates",
+      "./native/ForegroundService/withForegroundService"
+    ],
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
