@@ -2,6 +2,118 @@
 
 _This file is the resume point. If a session gets cut, read this file first, then `CONTEXT.md` for full architecture._
 
+## 2026-07-26 — first end-to-end run, on Windows via WSL
+
+The repo moved from the Mac to `D:\PROJECTS\pocketcodeapk` (Windows). Everything
+below the "Detour in progress" heading was written on the Mac and describes a
+working tree that no longer exists — `git log` is now two commits with a clean
+tree, not `79ad46e` plus uncommitted WIP. Treat the older sections as history.
+
+**The headline: the server side has now actually run.** Every prior session
+signed off with "NOT yet tested on an actual device/emulator". It has now been
+exercised end-to-end against a live Cloudflare tunnel with a real PTY.
+
+### Why WSL
+
+`pty/manager.ts:85-94` only spawns the Python `openpty` helper on darwin/linux;
+Windows gets a bare piped shell, so no agent CLI works. The whole server side
+therefore runs in WSL Ubuntu. See `tools/README.md` for the commands.
+
+### Fixed
+
+- **Approve/reject sent the wrong keystroke.** `agent.approve` wrote `y\n`.
+  Claude Code, Codex and Gemini draw an arrow-key selection menu and read raw
+  keypresses, so `y` did nothing. `ApprovalDetector` now classifies each prompt
+  as `menu` or `line` and records it per tab; approve sends `\r`/Esc for menus
+  and keeps `y\n`/`n\n` for line-style prompts like Aider's. `COMPETITIVE.md:52`
+  had already flagged this as "the make-or-break demo".
+- **Detector false positives armed a button wired to stdin.** It matched
+  anywhere in a chunk, so `press enter to continue` from a pager or the word
+  "continue?" in test output raised an approval notification. Matching is now
+  restricted to the last few lines, ANSI is stripped before matching, and the
+  terminal's echo of the user's own typed input is discounted.
+- **Notification snippets were raw escape codes** (`\u001b[?2004l`). Stripped.
+- **"Disconnect All" revoked nothing.** `Auth.revokeAll()` cleared each record's
+  device map but left the token hash valid, and `authenticate()` re-binds any
+  unknown device — so a revoked phone reconnected on its next attempt. It now
+  drops the tokens and emits `revoked.all`, which the server uses to close
+  sockets that were already authenticated. `docs/SECURITY.md` claimed this
+  behaviour and has been corrected to match what the code does.
+- **The "Machines" button opened the QR scanner.** `Root.kt` used bare tab
+  indices and `tab = 5` was the scanner, not `MachineListScreen` at 6 — which was
+  unreachable from anywhere. Screens are now named constants (`Screen.MACHINES`).
+- **`PasteQrDialog` told users to look in "your editor's CodeMote panel."**
+- **A second phone never learned about tabs it had not opened itself.**
+  `term.open`/`term.close` returned the new `term.list` only to the requester,
+  and the Android client drops `term.data` for tab ids it does not know — so on
+  a second connected phone that tab's output went nowhere. The list is now
+  broadcast, including on PTY exit so the `alive` flag stays in sync.
+
+### Changed (UI)
+
+Bottom nav cut from six entries to four (Agent, Terminal, Files, Git) with the
+rest in a top-bar overflow menu, replacing three crammed text buttons. Real
+Material icons instead of `▤ >_ ⎇ ◆` glyphs. App opens on Agent rather than the
+file tree. Empty states for the file tree and the machine list.
+
+### Redesign: "instrument, not inbox"
+
+There was no design system — the whole palette was 19 lines of `ClaudeColors`
+inlined in `MainActivity.kt`, typography was Material defaults plus scattered
+raw `fontSize` values, and padding was chosen per screen from
+`{4, 6, 8, 10, 12, 16, 18, 20, 32}`. Now `ui/theme/` holds the palette, a type
+scale, shapes and one spacing ladder, and `ui/components/` holds the pieces
+every screen was reimplementing (`EmptyState`, `PanelCard`, `StatusLamp`,
+`Eyebrow`, `SectionHeader`, `LoadingState`).
+
+**The palette decision worth knowing:** amber (`#F5A524`) is the brand colour
+*and* the "agent is waiting on you" colour, deliberately. This app exists for
+one moment, and that moment is an annunciator lamp. The consequence is that
+nothing else may use amber — so "connecting" is a pulsing neutral rather than
+the usual yellow, or it would compete with the one signal that matters. Base is
+a blue-shifted ink (`#0A0D12`) with slate panels; green/red/blue appear only as
+status lamps.
+
+Type is Space Grotesk for titles, Inter for the interface, JetBrains Mono for
+anything the machine wrote — paths, diffs, commands, approval snippets — so the
+typeface itself says whether a human or a computer chose the words. All three
+are bundled in `res/font`; `tools/fetch-fonts.sh` re-fetches them.
+
+The signature surface is the **approval console** in the agent tab: a pinned,
+thumb-height card with an amber border that breathes until answered. It only
+appears when the awaiting-approval event is the *most recent* one in that
+thread, which also fixes a real bug — every historical approval bubble used to
+keep live Approve/Reject buttons, so tapping an old one fired a keystroke into
+whatever prompt happened to be open.
+
+`tools/patch-terminal.py` exists because `Terminal.kt` mixes UTF-8 box-drawing
+comments with literal ESC (`0x1b`) bytes in the extra-keys table; editing it
+through anything that guesses the encoding rewrites all 192 lines and turns the
+box-drawing into `?`. Patch it with that script, not by hand.
+
+### Verification
+
+- Extension: **60/60** unit tests (was 44). New: `server/auth.test.ts` (10),
+  `server/multiclient.test.ts` (3, two live sockets against a real server),
+  detector style-classification, echo suppression, ANSI handling.
+- End-to-end over a public Cloudflare tunnel via `tools/smoke-client.js` —
+  **9/9**: health, WS auth, `term.open`, shell execution, `/dev/pts/N` proving a
+  real PTY, approval event raised, readable snippet, and Enter (not `y`)
+  delivered to a menu-style prompt read in raw mode.
+- Android: `:app:assembleDebug` **BUILD SUCCESSFUL**, no warnings →
+  `android/app-debug.apk` (19 MB).
+- **Still not run on a physical phone.** That is the one remaining gap.
+
+### Trap for the next session
+
+WSL's ext4 root is mounted `errors=remount-ro`. The Windows `C:` drive hit
+40 MB free during this session; the virtual disk could not grow, the filesystem
+went read-only mid-write, and it silently truncated the JDK, three Android SDK
+`package.xml` descriptors, and the Gradle distribution. Each produced a
+completely unrelated-looking error. `tools/wsl-verify.sh` detects this state and
+`tools/README.md` documents the repair path. Check free space on `C:` first —
+`df` inside WSL reports the virtual disk's nominal size and looks healthy.
+
 ## ⚠️ Detour in progress: detector hardening (stash@{0}, uncommitted)
 
 The `ApprovalDetector` regex set was widened in WIP but **not device-tested**

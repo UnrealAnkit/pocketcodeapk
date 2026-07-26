@@ -12,3 +12,10 @@ local.properties
 
 # DevContext - AI coding context
 .devctx/
+
+# Build output copied out of the WSL build tree
+*.apk
+
+# Contain a live pairing token
+tools/pairing.local.json
+tools/pairing-qr.png

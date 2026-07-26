@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Ink.Base. Pure black here made the launch flash a visibly different
+         shade from the app it hands over to. -->
+    <color name="ink_base">#0A0D12</color>
+
     <style name="Theme.PocketCode" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowBackground">@color/ink_base</item>
+        <item name="android:statusBarColor">@color/ink_base</item>
+        <item name="android:navigationBarColor">@color/ink_base</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

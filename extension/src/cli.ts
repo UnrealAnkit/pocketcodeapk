@@ -54,7 +54,7 @@ export function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp() {
-  console.log(`pocketcode-cli — headless PocketCode (CodeMote-style, no editor)
+  console.log(`pocketcode-cli — headless PocketCode server (no editor required)
 
 Usage:
   pocketcode-cli [cwd] [options]

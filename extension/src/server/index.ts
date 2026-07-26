@@ -9,7 +9,7 @@ import { GitManager } from '../git/manager';
 import { GitHubClient } from '../git/github';
 import { listDevServers, DevServerRegistry } from '../devservers';
 import { Snapshots } from '../snapshot';
-import { ApprovalDetector } from '../agent-detector';
+import { ApprovalDetector, APPROVAL_KEYS } from '../agent-detector';
 import { AgentEventNormalizer } from '../agent-events';
 import { WsMsg, PairingQR } from './protocol';
 import { fingerprint, newToken } from '../security/token';
@@ -84,18 +84,35 @@ export class Server extends EventEmitter {
       // Agent-agnostic: scan raw PTY output for a y/n-style approval prompt.
       // Previously nothing ever produced 'agent.event' -- the approve/reject
       // wire path existed but had no trigger telling the phone when to fire it.
-      const snippet = this.approvalDetector.check(id, data);
-      if (snippet) {
-        this.broadcast({ t: 'agent.event', tab: id, kind: 'awaiting_approval', payload: { snippet } });
+      const hit = this.approvalDetector.check(id, data);
+      if (hit) {
+        this.broadcast({
+          t: 'agent.event',
+          tab: id,
+          kind: 'awaiting_approval',
+          payload: { snippet: hit.snippet },
+        });
       }
     });
     this.pty.on('exit', (id, code) => {
       this.broadcast({ t: 'term.exit', tab: id, code });
+      // A dead tab stays in the list with alive:false until it is closed, so
+      // resend the list to keep that flag in sync everywhere.
+      this.broadcastTabs();
       this.approvalDetector.forget(id);
       this.agentEvents.forget(id);
     });
     opts.auth.on('device.bound', (d) => this.emit('device.bound', d));
     opts.auth.on('device.fingerprintMismatch', (d) => this.emit('device.fingerprintMismatch', d));
+    // Revoking a token only stops *future* upgrades, so tear down the sockets
+    // that were authenticated before it was revoked.
+    opts.auth.on('revoked.all', () => {
+      for (const ws of [...this.clients.keys()]) {
+        this.send(ws, { t: 'error', msg: 'session revoked — re-pair from your editor' });
+        ws.close(4001, 'revoked');
+      }
+      this.clients.clear();
+    });
   }
 
   listen(): Promise<number> {
@@ -135,6 +152,14 @@ export class Server extends EventEmitter {
   private broadcast(msg: WsMsg) {
     const j = JSON.stringify(msg);
     for (const ws of this.clients.keys()) if (ws.readyState === ws.OPEN) ws.send(j);
+  }
+
+  // The tab set is server-wide, so every client needs it, not just whoever
+  // caused the change. Sending it only to the requester left a second phone
+  // unaware of tabs it had not opened itself -- and clients drop term.data for
+  // tab ids they do not know about, so that tab's output vanished for them.
+  private broadcastTabs() {
+    this.broadcast({ t: 'term.list', tabs: this.pty.list() });
   }
 
   private send(ws: WebSocket, msg: WsMsg) {
@@ -197,17 +222,20 @@ export class Server extends EventEmitter {
     switch (msg.t) {
       case 'term.open': {
         this.pty.open({ cols: msg.cols, rows: msg.rows, cwd: msg.cwd });
-        return { t: 'term.list', tabs: this.pty.list() };
+        this.broadcastTabs();
+        return null;
       }
       case 'term.input':
         this.agentEvents.observeInput(msg.tab, msg.data);
+        this.approvalDetector.noteInput(msg.tab, msg.data);
         this.pty.write(msg.tab, msg.data);
         return null;
       case 'term.resize': this.pty.resize(msg.tab, msg.cols, msg.rows); return null;
       case 'term.close':
         this.agentEvents.forget(msg.tab);
         this.pty.close(msg.tab);
-        return { t: 'term.list', tabs: this.pty.list() };
+        this.broadcastTabs();
+        return null;
       case 'term.list': return { t: 'term.list', tabs: this.pty.list() };
 
       case 'fs.tree': return { t: 'fs.tree' as any, ...(await this.tree(msg.path, msg.depth)) } as any;
@@ -323,14 +351,16 @@ export class Server extends EventEmitter {
         // if that specific tab is gone (e.g. it already exited), so a stale
         // tap on an old notification doesn't get misrouted to a *different*
         // live agent session when multiple terminals are running.
-        // "y\n" for approve, "n\n" for reject — what Claude Code / Codex / Aider read on stdin.
-        const answer = msg.t === 'agent.approve' ? 'y\n' : 'n\n';
         const tabs = this.pty.list();
         const alive = tabs.filter(t => t.alive);
         const requested = alive.find(t => t.id === (msg as any).session);
         const target = requested ?? alive[alive.length - 1];
         if (target) {
-          this.pty.write(target.id, answer);
+          // Menu-style TUIs (Claude Code, Codex, Gemini) read raw keypresses,
+          // so they need Enter/Esc; only line-style prompts want "y\n"/"n\n".
+          // The detector recorded which shape this tab last displayed.
+          const keys = APPROVAL_KEYS[this.approvalDetector.styleFor(target.id)];
+          this.pty.write(target.id, msg.t === 'agent.approve' ? keys.approve : keys.reject);
           this.approvalDetector.clear(target.id);
         }
         return null;

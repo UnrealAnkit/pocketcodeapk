@@ -1,11 +1,15 @@
 package com.remotedev.pocketcode.terminal
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.remotedev.pocketcode.PocketcodeApp
 import com.remotedev.pocketcode.commands.SavedCommandBar
+import com.remotedev.pocketcode.ui.components.StatusLamp
+import com.remotedev.pocketcode.ui.theme.Mono
+import com.remotedev.pocketcode.ui.theme.Space
+import com.remotedev.pocketcode.ui.theme.status
 
 data class Tab(
     val id: String,
@@ -65,23 +73,25 @@ fun TerminalScreen(
                     onClick = { showTabMenu = true },
                     shape = RoundedCornerShape(50),
                     color = cs.surfaceVariant,
+                    border = BorderStroke(1.dp, cs.outline),
                 ) {
                     Row(
-                        Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        Modifier.padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(if (cur?.alive == true) Color(0xFF22C55E) else cs.onSurfaceVariant)
-                        )
-                        Spacer(Modifier.width(8.dp))
+                        StatusLamp(if (cur?.alive == true) status.ok else status.idle, size = 7.dp)
+                        Spacer(Modifier.width(Space.sm))
                         Text(
-                            text = if (cur != null) "${cur.title}  ▾" else "Terminal  ▾",
+                            text = cur?.title ?: "No terminal",
                             color = cs.onSurface,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 15.sp,
+                            fontFamily = Mono,
+                            fontSize = 14.sp,
+                        )
+                        Icon(
+                            Icons.Outlined.ExpandMore,
+                            contentDescription = "Switch terminal",
+                            tint = cs.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -91,14 +101,19 @@ fun TerminalScreen(
                 ) {
                     tabs.forEachIndexed { i, t ->
                         DropdownMenuItem(
-                            text = { Text(t.title, fontFamily = FontFamily.Monospace) },
+                            text = { Text(t.title, fontFamily = Mono) },
                             onClick = { onActiveTabChange(i); showTabMenu = false },
                             trailingIcon = {
-                                TextButton(onClick = {
+                                IconButton(onClick = {
                                     onCloseTab(t.id)
                                     showTabMenu = false
                                 }) {
-                                    Text("✕", color = cs.error, fontSize = 14.sp)
+                                    Icon(
+                                        Icons.Outlined.Close,
+                                        contentDescription = "Close ${t.title}",
+                                        tint = cs.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
                                 }
                             },
                         )
@@ -140,8 +155,8 @@ fun TerminalScreen(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                TextButton(onClick = onAddTab) {
-                    Text("Tap to open a terminal", color = cs.onSurfaceVariant)
+                Button(onClick = onAddTab, shape = MaterialTheme.shapes.small) {
+                    Text("Open a terminal", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -150,7 +165,7 @@ fun TerminalScreen(
 
 @Composable
 private fun ExtraKeys(onSend: (String) -> Unit) {
-    // Matches CodeMote's key bar: esc ctrl ->| ~ | / - left down up right
+    // Keys a phone keyboard cannot reach but a TUI needs constantly.
     val keys = listOf(
         "esc"  to "",
         "ctrl" to "",

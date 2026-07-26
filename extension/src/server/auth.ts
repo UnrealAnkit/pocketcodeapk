@@ -85,9 +85,16 @@ export class Auth extends EventEmitter {
     return rec.devices.delete(deviceId);
   }
 
+  // Destroys every token, not just the device bindings. Clearing only the
+  // bindings left the token hash valid, so a revoked phone silently re-bound
+  // itself on its next reconnect and "Disconnect All" revoked nothing.
+  // Emits 'revoked.all' so the server can also drop sockets that are already
+  // open -- the token is checked at WS upgrade, never again afterwards.
   revokeAll(): number {
     let n = 0;
-    for (const rec of this.tokens.values()) { n += rec.devices.size; rec.devices.clear(); }
+    for (const rec of this.tokens.values()) n += rec.devices.size;
+    this.tokens.clear();
+    this.emit('revoked.all');
     return n;
   }
 
