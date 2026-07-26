@@ -10,7 +10,7 @@
 | Compromised VS Code             | (user already trusted it)         | Same as user's normal terminal access         |
 | Malicious QR pasted by user     | Connect to attacker server        | First-pair fingerprint confirm dialog         |
 | Co-located network attacker     | Port-scan tunnel endpoint         | Random port; tunnel-only (no public 0.0.0.0)   |
-| Lost / stolen phone              | Attacker uses live session       | "Disconnect All" + per-device revocation      |
+| Lost / stolen phone             | Attacker uses live session        | "Disconnect All" drops tokens *and* live sockets |
 
 ## Pairing flow (what actually happens)
 
@@ -57,7 +57,10 @@ is in place.
 1. **Tailscale DERP relay** sees your IP and that *some* connection is happening. Traffic is still E2E encrypted (WireGuard). If your threat model excludes Tailscale Inc, use Headscale + your own DERP.
 2. **devtunnel** is Microsoft-hosted; same caveat. For air-gap, configure SSH tunnel (`remoteDev.preferredTunnel=ssh`).
 3. **PTY is full shell.** A compromised phone = full shell on the dev machine. This is the explicit user requirement (run Claude Code etc.). Mitigation: short-lived tokens, per-device revocation, status bar makes connected devices visible.
-4. **QR transmission is visual.** Shoulder-surfing is on you. Token rotates on every "Disconnect All".
+4. **QR transmission is visual.** Shoulder-surfing is on you. "Disconnect All" destroys
+   every issued token and closes any sockets already authenticated with one, so a
+   shoulder-surfed QR is dead as soon as you run it — but re-pairing then needs a
+   fresh scan.
 5. **Cost tracker / activity timeline parsing is heuristic.** A misbehaving agent could spoof "done". These are advisory, not security boundaries.
 6. **Session transcripts not encrypted.** Agent event summaries in the Room DB are plaintext. Future work.
 
