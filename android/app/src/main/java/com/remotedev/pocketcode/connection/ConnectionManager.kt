@@ -21,11 +21,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.*
+import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -46,6 +46,11 @@ sealed class ConnState {
 
 private const val RAW_BUFFER_CAP = 200_000 // chars of raw PTY text kept per tab
 
+// How far the consumer may fall behind on terminal redraws before new ones are
+// dropped at ingestion. Roughly a couple of MB of pending frames; past that the
+// oldest are stale anyway, since a TUI's next repaint supersedes them.
+private const val MAX_QUEUED_TERM_FRAMES = 256
+
 class ConnectionManager(private val ctx: Context) {
     val json = Json { ignoreUnknownKeys = true; classDiscriminator = "t" }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -56,10 +61,24 @@ class ConnectionManager(private val ctx: Context) {
         .pingInterval(20, TimeUnit.SECONDS)
         .build()
 
-    // ponytail: SharedFlow not StateFlow -- StateFlow conflates emissions and drops messages
-    // under load. SharedFlow with UNLIMITED buffer keeps every WS frame intact.
-    val inbound = MutableSharedFlow<JsonElement>(extraBufferCapacity = 64, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
-    val inboundEvents: SharedFlow<JsonElement> = inbound
+    // OkHttp delivers frames on its own reader thread, so ingestion is a queue.
+    //
+    // The queue is unbounded and terminal output is shed *before* entering it,
+    // rather than the queue dropping whatever is oldest. That ordering matters:
+    // this lane also carries agent.event, and silently losing the approval
+    // prompt the whole app exists to deliver is the worst failure it has. The
+    // previous 64-frame DROP_OLDEST buffer did exactly that -- one busy TUI
+    // could bury an approval behind redraws, and ten agents in parallel would
+    // do it reliably. (Its comment claimed an unlimited buffer; the code said
+    // 64.)
+    //
+    // Redraws are the one thing safe to lose: xterm resyncs on the next full
+    // repaint and the server replays its scrollback on reconnect. They are also
+    // what makes the consumer slow -- handling one costs a ~200KB string copy,
+    // see "term.data" below -- so shedding them is what keeps the queue from
+    // growing without bound.
+    private val inbound = Channel<JsonElement>(Channel.UNLIMITED)
+    private val queuedTermFrames = AtomicInteger(0)
 
     val fileTree = MutableStateFlow<List<FsNode>>(emptyList())
     val gitStatus = MutableStateFlow<GitStatus>(GitStatus())
@@ -86,7 +105,10 @@ class ConnectionManager(private val ctx: Context) {
 
     init {
         scope.launch {
-            inbound.collect { element ->
+            for (element in inbound) {
+                // Read before handling so a throw inside runCatching cannot leak
+                // a slot and permanently shrink the terminal budget.
+                val isTermData = isTermData(element)
                 runCatching {
                     val obj = element.jsonObject
                     val type = obj["t"]?.jsonPrimitive?.content ?: return@runCatching
@@ -326,9 +348,14 @@ class ConnectionManager(private val ctx: Context) {
                         }
                     }
                 }
+                if (isTermData) queuedTermFrames.decrementAndGet()
             }
         }
     }
+
+    private fun isTermData(element: JsonElement): Boolean = runCatching {
+        element.jsonObject["t"]?.jsonPrimitive?.content == "term.data"
+    }.getOrDefault(false)
 
     fun connect(machine: PairedMachine) {
         userDisconnected = false
@@ -370,8 +397,17 @@ class ConnectionManager(private val ctx: Context) {
                 send("""{"t":"workspace.list"}""")
             }
             override fun onMessage(ws: WebSocket, text: String) {
-                runCatching { json.parseToJsonElement(text) }
-                    .onSuccess { inbound.tryEmit(it) }
+                val element = runCatching { json.parseToJsonElement(text) }.getOrNull() ?: return
+                val termData = isTermData(element)
+                if (termData) {
+                    // Once the consumer is this far behind, drop redraws at the
+                    // door. Control frames are never dropped, at any depth.
+                    if (queuedTermFrames.get() >= MAX_QUEUED_TERM_FRAMES) return
+                    queuedTermFrames.incrementAndGet()
+                }
+                if (inbound.trySend(element).isFailure && termData) {
+                    queuedTermFrames.decrementAndGet()
+                }
             }
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
                 activeWs = null
