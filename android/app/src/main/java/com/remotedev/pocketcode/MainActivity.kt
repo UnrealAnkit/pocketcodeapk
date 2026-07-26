@@ -8,36 +8,28 @@ import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import com.remotedev.pocketcode.ui.Root
-
-// Claude-branded dark palette
-private val ClaudeColors = darkColorScheme(
-    primary            = Color(0xFFD97757), // Claude orange
-    onPrimary          = Color(0xFFFFFFFF),
-    primaryContainer   = Color(0xFF7C3AED), // deep purple
-    onPrimaryContainer = Color(0xFFEDE9FE),
-    secondary          = Color(0xFF9D7CF4), // medium purple
-    onSecondary        = Color(0xFF1A0A33),
-    secondaryContainer = Color(0xFF2D1B69),
-    onSecondaryContainer = Color(0xFFDDD6FE),
-    tertiary           = Color(0xFF60A5FA),
-    background         = Color(0xFF0F0F10),
-    onBackground       = Color(0xFFE8E3DD),
-    surface            = Color(0xFF1A1A1C),
-    onSurface          = Color(0xFFE8E3DD),
-    surfaceVariant     = Color(0xFF252528),
-    onSurfaceVariant   = Color(0xFFB5B0AB),
-    outline            = Color(0xFF3A3A3F),
-    error              = Color(0xFFEF4444),
-    onError            = Color(0xFFFFFFFF),
-)
+import com.remotedev.pocketcode.ui.components.Eyebrow
+import com.remotedev.pocketcode.ui.theme.PocketCodeTheme
+import com.remotedev.pocketcode.ui.theme.Space
 
 class MainActivity : FragmentActivity() {
     private val openDiffFor = mutableStateOf<String?>(null)
@@ -93,23 +85,50 @@ class MainActivity : FragmentActivity() {
 
 @Composable
 fun App(isAuthorized: Boolean, openDiffFor: String?, clearOpenDiffFor: (String?) -> Unit) {
-    MaterialTheme(colorScheme = ClaudeColors) {
+    PocketCodeTheme {
         Surface {
             if (isAuthorized) {
                 Root(openDiffFor, clearOpenDiffFor)
             } else {
-                BoxPlaceholder()
+                LockScreen()
             }
         }
     }
 }
 
+/**
+ * First thing anyone sees, and previously the words "Authorization Required" on
+ * a black field. It is the wordmark's only full-bleed appearance, so it does the
+ * branding the top bar no longer has room for.
+ */
 @Composable
-fun BoxPlaceholder() {
-    androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
-        contentAlignment = androidx.compose.ui.Alignment.Center
-    ) {
-        androidx.compose.material3.Text("Authorization Required")
+fun LockScreen() {
+    val cs = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxSize().padding(Space.xxl), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                Icons.Outlined.Lock,
+                contentDescription = null,
+                tint = cs.primary,
+                modifier = Modifier.size(28.dp),
+            )
+            Text(
+                "PocketCode",
+                style = MaterialTheme.typography.displaySmall,
+                color = cs.onBackground,
+                modifier = Modifier.padding(top = Space.lg),
+            )
+            Text(
+                "Unlock to reach your machine.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = cs.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = Space.sm),
+            )
+            Eyebrow("Locked", Modifier.padding(top = Space.xxl), color = cs.primary)
+        }
     }
 }

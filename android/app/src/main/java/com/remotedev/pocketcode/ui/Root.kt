@@ -1,24 +1,40 @@
 package com.remotedev.pocketcode.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Dns
+import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.outlined.Workspaces
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.remotedev.pocketcode.ui.components.StatusLamp
+import com.remotedev.pocketcode.ui.theme.Space
+import com.remotedev.pocketcode.ui.theme.status
 import com.remotedev.pocketcode.PocketcodeApp
 import com.remotedev.pocketcode.connection.ConnState
 import com.remotedev.pocketcode.files.FileTreeScreen
@@ -32,64 +48,135 @@ import com.remotedev.pocketcode.notes.NotesScreen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
-// Simple glyph-based icons, matching the existing terminal's unicode-glyph
-// convention (⚡ ⏎ ▾) instead of pulling in the material-icons-extended
-// artifact just for five icons.
-private val NAV_ITEMS = listOf(
-    "▤" to "Files",
-    ">_" to "Terminal",
-    "⎇" to "Git",
-    "◆" to "Agent",
-    "✎" to "Notes",
-    "▣" to "Pair",
-)
-
-@Composable
-private fun StatusDot(state: ConnState) {
-    val color = when (state) {
-        is ConnState.Connected -> Color(0xFF22C55E)
-        is ConnState.Connecting, is ConnState.Reconnecting -> Color(0xFFEAB308)
-        is ConnState.Error -> Color(0xFFEF4444)
-        else -> Color(0xFF6B7280)
-    }
-    Box(
-        Modifier
-            .size(8.dp)
-            .clip(CircleShape)
-            .background(color)
-    )
+// Screens are addressed by name rather than by bare index. The two used to be
+// kept in sync by hand, and the "Machines" action opened the QR scanner because
+// of an off-by-one against the `when (tab)` block below.
+private object Screen {
+    const val FILES = 0
+    const val TERMINAL = 1
+    const val GIT = 2
+    const val AGENT = 3
+    const val NOTES = 4
+    const val PAIR = 5
+    const val MACHINES = 6
+    const val SERVERS = 7
 }
 
-// Floating rounded pill nav (CodeMote-style segmented control) instead of a
-// full-bleed stock Material NavigationBar -- selected item picks up the
-// brand orange from ClaudeColors rather than the default M3 indicator pill.
+private data class NavItem(val screen: Int, val icon: ImageVector, val label: String)
+
+// Four primary destinations. Everything else lives in the overflow menu -- six
+// bottom-bar entries plus three top-bar text buttons read as an unfinished
+// prototype, and the agent surface is the one worth pointing at.
+private val NAV_ITEMS = listOf(
+    NavItem(Screen.AGENT, Icons.Outlined.AutoAwesome, "Agent"),
+    NavItem(Screen.TERMINAL, Icons.Outlined.Terminal, "Terminal"),
+    NavItem(Screen.FILES, Icons.Outlined.FolderOpen, "Files"),
+    NavItem(Screen.GIT, Icons.Outlined.AccountTree, "Git"),
+)
+
+private fun screenTitle(screen: Int): String = when (screen) {
+    Screen.FILES -> "Files"
+    Screen.TERMINAL -> "Terminal"
+    Screen.GIT -> "Git"
+    Screen.AGENT -> "Agent"
+    Screen.NOTES -> "Notes"
+    Screen.PAIR -> "Pair"
+    Screen.MACHINES -> "Machines"
+    Screen.SERVERS -> "Dev servers"
+    else -> "PocketCode"
+}
+
+/**
+ * Connecting deliberately does *not* use amber. Amber is reserved for "the agent
+ * is waiting on you" so that it means exactly one thing anywhere in the app; a
+ * connection in progress is a pulsing neutral instead.
+ */
+@Composable
+private fun connColor(state: ConnState): Color = when (state) {
+    is ConnState.Connected -> status.ok
+    is ConnState.Connecting, is ConnState.Reconnecting -> status.info
+    is ConnState.Error -> status.fault
+    else -> status.idle
+}
+
+/**
+ * Whether the phone and the machine are actually talking is the one thing an
+ * onlooker needs to read at a glance, so it is a labelled lamp rather than a
+ * bare dot -- and it is tappable, because "disconnected" and "how do I
+ * reconnect" are the same thought.
+ */
+@Composable
+private fun ConnectionPill(state: ConnState, machineName: String?, onClick: () -> Unit) {
+    val color = connColor(state)
+    val busy = state is ConnState.Connecting || state is ConnState.Reconnecting
+    val label = when (state) {
+        is ConnState.Connected -> state.machine
+        is ConnState.Connecting -> "Connecting"
+        is ConnState.Reconnecting -> "Retry ${state.attempt}"
+        is ConnState.Error -> "Error"
+        is ConnState.Disconnected -> "Offline"
+        ConnState.Idle -> machineName ?: "Not paired"
+    }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = color.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StatusLamp(color, pulsing = busy, size = 7.dp)
+            Spacer(Modifier.width(7.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 110.dp),
+            )
+        }
+    }
+}
+
+// A floating panel rather than a full-bleed NavigationBar: it keeps the ink
+// background visible at the edges, which is what makes the app read as a
+// control surface laid over the terminal rather than a stack of grey sheets.
 @Composable
 private fun FloatingBottomNav(selected: Int, onSelect: (Int) -> Unit) {
     val cs = MaterialTheme.colorScheme
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        shape = RoundedCornerShape(24.dp),
+            .padding(horizontal = Space.md, vertical = Space.md),
+        shape = MaterialTheme.shapes.extraLarge,
         color = cs.surface,
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, cs.outline),
+        shadowElevation = 10.dp,
     ) {
-        Row(Modifier.padding(vertical = 6.dp, horizontal = 4.dp)) {
-            NAV_ITEMS.forEachIndexed { i, (glyph, label) ->
-                val isSelected = selected == i
+        Row(Modifier.padding(Space.xs)) {
+            NAV_ITEMS.forEach { item ->
+                val isSelected = selected == item.screen
                 val fg = if (isSelected) cs.primary else cs.onSurfaceVariant
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { onSelect(i) }
-                        .padding(vertical = 8.dp),
+                        .clip(MaterialTheme.shapes.large)
+                        .background(if (isSelected) cs.primary.copy(alpha = 0.10f) else Color.Transparent)
+                        .clickable { onSelect(item.screen) }
+                        .padding(vertical = Space.sm),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(glyph, fontSize = 17.sp, color = fg)
-                    Spacer(Modifier.height(2.dp))
-                    Text(label, fontSize = 11.sp, color = fg)
+                    Icon(item.icon, contentDescription = item.label, tint = fg, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        item.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontSize = 11.sp,
+                        color = fg,
+                    )
                 }
             }
         }
@@ -100,9 +187,12 @@ private fun FloatingBottomNav(selected: Int, onSelect: (Int) -> Unit) {
 @Composable
 fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) {
     val app = PocketcodeApp.instance
-    var tab by remember { mutableStateOf(0) }
+    // Open on the agent surface: it is the reason the app exists, and a file
+    // tree is a poor first impression.
+    var tab by remember { mutableStateOf(Screen.AGENT) }
     var showPasteDialog by remember { mutableStateOf(false) }
     var showWorkspaceDialog by remember { mutableStateOf(false) }
+    var showOverflow by remember { mutableStateOf(false) }
     val machines by app.machines.machines.collectAsState()
     val connState by app.connection.state.collectAsState()
     val lastConnectUrl by app.connection.lastConnectUrl.collectAsState()
@@ -128,14 +218,14 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val isImeVisible = WindowInsets.isImeVisible
 
-    fun selectTab(index: Int) {
-        tab = index
-        if (index == 2) app.connection.send("""{"t":"git.status"}""")
+    fun selectTab(screen: Int) {
+        tab = screen
+        if (screen == Screen.GIT) app.connection.send("""{"t":"git.status"}""")
     }
 
     LaunchedEffect(openDiffFor) {
         if (openDiffFor != null) {
-            selectTab(2)
+            selectTab(Screen.GIT)
             clearOpenDiffFor(null)
         }
     }
@@ -143,48 +233,82 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
     fun pairAndConnect(qr: PairingQR) {
         val machine = app.machines.add(qr)
         app.connection.connect(machine)
-        tab = 1
+        tab = Screen.TERMINAL
     }
 
     Scaffold(topBar = {
         TopAppBar(
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             title = {
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        StatusDot(connState)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            when (val s = connState) {
-                                is ConnState.Connected -> s.machine
-                                is ConnState.Connecting -> "Connecting…"
-                                is ConnState.Reconnecting -> "Reconnecting (${s.attempt})…"
-                                is ConnState.Error -> "Connection error"
-                                else -> if (machines.isEmpty()) "PocketCode" else machines.first().name
-                            }
-                        )
-                    }
+                    Text(
+                        screenTitle(tab),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    // One line of context under the title, which is where the
+                    // session cost lives when there is nothing more urgent.
                     val subtitle = when (connState) {
-                        is ConnState.Connected -> costUpdate?.let { "Connected · ~\$${"%.4f".format(it.usd)}" } ?: "Connected"
-                        is ConnState.Connecting -> "Connecting"
-                        is ConnState.Reconnecting -> "Reconnecting"
+                        is ConnState.Connected -> costUpdate?.let { "~\$${"%.4f".format(it.usd)} this session" } ?: "Connected"
+                        is ConnState.Connecting -> "Opening tunnel"
+                        is ConnState.Reconnecting -> "Retrying"
                         is ConnState.Error -> {
                             val reason = (connState as ConnState.Error).reason
                             if (lastConnectUrl != null) "$reason · $lastConnectUrl" else reason
                         }
-                        is ConnState.Disconnected -> "Disconnected"
-                        ConnState.Idle -> if (machines.isNotEmpty()) "Tap Machines to connect" else "Scan QR to pair"
+                        is ConnState.Disconnected -> "Tap the status chip to reconnect"
+                        ConnState.Idle ->
+                            if (machines.isNotEmpty()) "Tap the status chip to connect"
+                            else "Scan the QR from your editor"
                     }
-                    Text(subtitle, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             },
             actions = {
-                TextButton(onClick = {
-                    app.connection.send("""{"t":"workspace.list"}""")
-                    showWorkspaceDialog = true
-                }) { Text("Workspaces") }
-                TextButton(onClick = { tab = 7 }) { Text("Servers") }
-                Spacer(Modifier.width(4.dp))
-                TextButton(onClick = { tab = 5 }) { Text("Machines") }
+                ConnectionPill(connState, machines.firstOrNull()?.name) { tab = Screen.MACHINES }
+                Box {
+                    IconButton(onClick = { showOverflow = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    }
+                    DropdownMenu(expanded = showOverflow, onDismissRequest = { showOverflow = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Machines") },
+                            leadingIcon = { Icon(Icons.Outlined.Devices, null) },
+                            onClick = { showOverflow = false; tab = Screen.MACHINES },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Pair a new machine") },
+                            leadingIcon = { Icon(Icons.Outlined.QrCodeScanner, null) },
+                            onClick = { showOverflow = false; tab = Screen.PAIR },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("Workspaces") },
+                            leadingIcon = { Icon(Icons.Outlined.Workspaces, null) },
+                            onClick = {
+                                showOverflow = false
+                                app.connection.send("""{"t":"workspace.list"}""")
+                                showWorkspaceDialog = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Dev servers") },
+                            leadingIcon = { Icon(Icons.Outlined.Dns, null) },
+                            onClick = { showOverflow = false; tab = Screen.SERVERS },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Notes") },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.StickyNote2, null) },
+                            onClick = { showOverflow = false; tab = Screen.NOTES },
+                        )
+                    }
+                }
             },
         )
     }, bottomBar = {
@@ -196,28 +320,44 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
     }) { padding ->
         Row(Modifier.padding(padding).fillMaxSize()) {
             if (isLandscape) {
-                NavigationRail {
-                    NAV_ITEMS.forEachIndexed { i, (glyph, label) ->
+                // Matched to the portrait nav rather than left as a stock rail,
+                // which rendered in a different grey with a different indicator.
+                NavigationRail(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ) {
+                    NAV_ITEMS.forEach { item ->
                         NavigationRailItem(
-                            selected = tab == i,
-                            onClick = { selectTab(i) },
-                            label = { Text(label) },
-                            icon = { Text(glyph, fontSize = 17.sp) },
+                            selected = tab == item.screen,
+                            onClick = { selectTab(item.screen) },
+                            label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                            icon = { Icon(item.icon, contentDescription = item.label, modifier = Modifier.size(20.dp)) },
+                            colors = NavigationRailItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                         )
                     }
                 }
             }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 when (tab) {
-                0 -> {
+                    Screen.FILES -> {
                     // ponytail: pass the upstream StateFlow directly -- wrapping it in
                     // remember(fileTree) { MutableStateFlow(fileTree) } recreates the flow
                     // on every state change and FileTreeScreen never re-receives updates.
-                    FileTreeScreen(app.connection.fileTree) { node ->
+                    FileTreeScreen(
+                        root = app.connection.fileTree,
+                        connected = connState is ConnState.Connected,
+                        onRefresh = { app.connection.send("""{"t":"fs.tree"}""") },
+                    ) { node ->
                         app.connection.send("""{"t":"fs.read","path":"${node.path}"}""")
                     }
                 }
-                    1 -> com.remotedev.pocketcode.terminal.TerminalScreen(
+                    Screen.TERMINAL -> com.remotedev.pocketcode.terminal.TerminalScreen(
                         tabs = terminalTabs,
                         activeTab = activeTerminalTab,
                         onActiveTabChange = { activeTerminalTab = it },
@@ -236,7 +376,7 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
                             app.connection.send("""{"t":"term.resize","tab":"$tabId","cols":$cols,"rows":$rows}""")
                         }
                     )
-                    2 -> if (showingPullRequests) PullRequestsScreen(
+                    Screen.GIT -> if (showingPullRequests) PullRequestsScreen(
                         prs = pullRequests,
                         detail = pullRequestDetail,
                         feedback = pullRequestFeedback,
@@ -273,7 +413,7 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
                             app.connection.send("""{"t":"github.prs"}""")
                         },
                     )
-                    3 -> com.remotedev.pocketcode.agent.AgentChatScreen(
+                    Screen.AGENT -> com.remotedev.pocketcode.agent.AgentChatScreen(
                         events = agentEvents,
                         tabs = terminalTabs,
                         onApprove = { tabId -> app.connection.respondToApproval(tabId, approve = true) },
@@ -285,7 +425,7 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
                             app.connection.send("""{"t":"term.resize","tab":"$tabId","cols":$cols,"rows":$rows}""")
                         },
                     )
-                    4 -> NotesScreen(
+                    Screen.NOTES -> NotesScreen(
                         notes = notes,
                         canSend = terminalTabs.getOrNull(activeTerminalTab)?.alive == true,
                         onSave = { id, content -> scope.launch {
@@ -312,16 +452,17 @@ fun Root(openDiffFor: String? = null, clearOpenDiffFor: (String?) -> Unit = {}) 
                             }
                         },
                     )
-                    5 -> QrScannerScreen(
+                    Screen.PAIR -> QrScannerScreen(
                         onPaired = { qr -> pairAndConnect(qr) },
                         onManual = { showPasteDialog = true },
                     )
-                    6 -> com.remotedev.pocketcode.pairing.MachineListScreen(
+                    Screen.MACHINES -> com.remotedev.pocketcode.pairing.MachineListScreen(
                         machines,
                         onPick = { app.connection.connect(it) },
                         onRemove = { app.machines.remove(it.id) },
+                        onScanNew = { tab = Screen.PAIR },
                     )
-                    7 -> DevServersScreen(
+                    Screen.SERVERS -> DevServersScreen(
                         servers = devServers,
                         logs = devServerLogs,
                         onRefresh = { app.connection.send("""{"t":"devservers"}""") },
@@ -393,7 +534,7 @@ private fun PasteQrDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
                 onValueChange = { text = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Pairing JSON") },
-                supportingText = { Text("From your editor's CodeMote panel") },
+                supportingText = { Text("From the PocketCode panel in your editor") },
             )
         },
         confirmButton = {

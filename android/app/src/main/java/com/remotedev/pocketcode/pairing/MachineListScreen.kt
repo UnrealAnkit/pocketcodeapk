@@ -1,73 +1,91 @@
 package com.remotedev.pocketcode.pairing
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.remotedev.pocketcode.ui.components.EmptyState
+import com.remotedev.pocketcode.ui.components.Eyebrow
+import com.remotedev.pocketcode.ui.components.PanelCard
+import com.remotedev.pocketcode.ui.components.StatusLamp
+import com.remotedev.pocketcode.ui.theme.MonoSmall
+import com.remotedev.pocketcode.ui.theme.Space
 
 @Composable
 fun MachineListScreen(
     machines: List<PairedMachine>,
     onPick: (PairedMachine) -> Unit,
     onRemove: (PairedMachine) -> Unit = {},
+    onScanNew: () -> Unit = {},
 ) {
     if (machines.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                "No machines paired yet.\nScan a QR code from the editor to get started.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        EmptyState(
+            icon = Icons.Outlined.QrCodeScanner,
+            title = "No machines paired",
+            body = "Run “Start Mobile Session” in your editor, then scan the QR code it shows.",
+            actionLabel = "Scan QR code",
+            onAction = onScanNew,
+        )
         return
     }
-    LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
+    val cs = MaterialTheme.colorScheme
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(Space.md),
+        verticalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
         items(machines, key = { it.id }) { m ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onPick(m) }) {
-                Row(
-                    Modifier.padding(12.dp).fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF6B7280))
-                    )
-                    Spacer(Modifier.width(10.dp))
+            PanelCard(onClick = { onPick(m) }) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    StatusLamp(cs.outline, size = 7.dp)
+                    Spacer(Modifier.width(Space.md))
                     Column(Modifier.weight(1f)) {
-                        Text(m.name, style = MaterialTheme.typography.titleMedium)
+                        Text(m.name, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             m.url,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MonoSmall,
+                            color = cs.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Text(
-                            "fp ${m.fingerprint.take(12)}…",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Eyebrow(
+                            "fp ${m.fingerprint.take(12)}",
+                            Modifier.padding(top = Space.xs),
                         )
                     }
-                    IconTextButton(onClick = { onRemove(m) })
+                    IconButton(onClick = { onRemove(m) }) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Forget ${m.name}",
+                            tint = cs.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun IconTextButton(onClick: () -> Unit) {
-    TextButton(onClick = onClick) {
-        Text("✕", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        item {
+            OutlinedButton(
+                onClick = onScanNew,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.small,
+                border = BorderStroke(1.dp, cs.outline),
+            ) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(Space.sm))
+                Text("Pair a new machine", style = MaterialTheme.typography.labelLarge)
+            }
+        }
     }
 }
