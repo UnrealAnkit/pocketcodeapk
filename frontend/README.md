@@ -1,3 +1,10 @@
 # PocketCode product showcase
 
-Static, dependency-free marketing site. Open `index.html` directly or host the `frontend` directory on any static host.
+Next.js 14 product showcase for PocketCode.
+
+```bash
+npm install
+npm run dev
+```
+
+Run `npm run build` to create a production build.
