@@ -1203,7 +1203,7 @@ footer small {
   }
 }
 
-/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES UP TO 1000px) */
+/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES UP TO 980px) */
 @media (max-width: 980px) {
   .cursor {
     display: none;
@@ -1219,7 +1219,7 @@ footer small {
   }
 
   .nav-actions {
-    margin-left: auto; /* Bulletproof right alignment on all devices */
+    margin-left: auto;
   }
 
   .menu {
@@ -1251,11 +1251,9 @@ footer small {
 
   .hero-product {
     height: auto;
-    min-height: 440px;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 30px;
+    justify-content: center;
+    margin-top: 24px;
   }
 
   .desktop-ui {
@@ -1264,14 +1262,11 @@ footer small {
     top: 0;
     width: 100%;
     transform: none;
+    filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.6));
   }
 
   .phone-ui {
-    position: relative;
-    right: 0;
-    top: -40px;
-    transform: scale(0.85);
-    margin-bottom: -30px;
+    display: none; /* Hide phone mockup in hero on mobile displays */
   }
 
   .connection {
