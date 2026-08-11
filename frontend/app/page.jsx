@@ -1,13 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Lenis from "lenis";
 import Navigation from "./Navigation";
 
 const repo = "https://github.com/UnrealAnkit/pocketcodeapk";
 const screens = ["APPROVAL", "TERMINAL", "FILES", "GIT", "AGENT"];
 const capabilities = ["REAL PTY", "MULTI-TAB", "FILES", "GIT", "AGENTS", "NOTIFICATIONS", "MULTI-MACHINE", "TUNNELS"];
+
+const screenDetails = [
+  {
+    title: "Instant Approvals",
+    desc: "Approve shell commands, package installations, and system prompts directly from your phone screen."
+  },
+  {
+    title: "Full PTY Terminal",
+    desc: "Execute real PTY commands, view output streams, and debug code remotely with zero latency."
+  },
+  {
+    title: "File Explorer",
+    desc: "Browse your project directory tree, search workspace files, and inspect changes on the move."
+  },
+  {
+    title: "Git Workflow",
+    desc: "Review diffs, stage files, and push commits with a single tap from anywhere."
+  },
+  {
+    title: "AI Agent Oversight",
+    desc: "Monitor Claude & AI coding agents in real-time with full oversight and emergency pause."
+  }
+];
 
 export default function Home() {
   const [cursor, setCursor] = useState({ x: 0, y: 0, label: "" });
@@ -30,7 +53,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveTab(prev => (prev + 1) % screens.length);
-    }, 4000);
+    }, 3800);
     return () => clearInterval(timer);
   }, []);
 
@@ -82,6 +105,24 @@ export default function Home() {
               ))}
             </div>
           </header>
+
+          <div className="how-stage">
+            <div className="how-phone-container">
+              <Phone activeIndex={activeTab} />
+            </div>
+            <div className="how-info-card">
+              <small>FEATURE {activeTab + 1} OF {screens.length}</small>
+              <h3>{screenDetails[activeTab].title}</h3>
+              <p>{screenDetails[activeTab].desc}</p>
+              <div className="tab-pills">
+                {screens.map((name, i) => (
+                  <span key={name} onClick={() => setActiveTab(i)} className={activeTab === i ? "pill active" : "pill"}>
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
         <TerminalScene />
@@ -212,11 +253,22 @@ function Phone({ activeIndex = 0 }) {
       <h4>⌘ <b>PocketCode</b><i>● CONNECTED</i></h4>
       <div className="phone-screen">
         <label>{title === "APPROVAL" ? "MACBOOK PRO · CONNECTED" : `POCKETCODE · ${title}`}</label>
-        {title === "TERMINAL" && <pre>~/pocketcodeapk<br />$ git status<br /><b>On branch main</b><br />$ npm test<br /><strong>PASS</strong><em>_</em></pre>}
-        {title === "FILES" && <div className="phone-files">⌄ pocketcodeapk<br /> ⌄ android<br /> ⌄ docs<br /> ⌄ extension<br />  <b>server.ts</b><br /> ⌄ tools</div>}
-        {title === "GIT" && <div className="phone-git"><b>main</b><small>3 changed files</small><p><i>−</i> const host = oldHost<br /><strong>+</strong> const host = tunnelHost</p><button type="button">STAGE</button> <button type="button">PUSH</button></div>}
-        {title === "AGENT" && <div className="phone-agent"><b>✦ Claude Code</b><small>● RUNNING</small><p>Reading package.json<br />Editing server.ts<br />Running tests</p></div>}
-        {title === "APPROVAL" && <div className="approval-card"><small>✦ CLAUDE CODE</small><p>Action required</p><code>npm install</code><div><button type="button">REJECT</button><button type="button">APPROVE</button></div></div>}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={title}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+            style={{ height: "100%" }}
+          >
+            {title === "TERMINAL" && <pre>~/pocketcodeapk<br />$ git status<br /><b>On branch main</b><br />$ npm test<br /><strong>PASS</strong><em>_</em></pre>}
+            {title === "FILES" && <div className="phone-files">⌄ pocketcodeapk<br /> ⌄ android<br /> ⌄ docs<br /> ⌄ extension<br />  <b>server.ts</b><br /> ⌄ tools</div>}
+            {title === "GIT" && <div className="phone-git"><b>main</b><small>3 changed files</small><p><i>−</i> const host = oldHost<br /><strong>+</strong> const host = tunnelHost</p><button type="button">STAGE</button> <button type="button">PUSH</button></div>}
+            {title === "AGENT" && <div className="phone-agent"><b>✦ Claude Code</b><small>● RUNNING</small><p>Reading package.json<br />Editing server.ts<br />Running tests</p></div>}
+            {title === "APPROVAL" && <div className="approval-card"><small>✦ CLAUDE CODE</small><p>Action required</p><code>npm install</code><div><button type="button">REJECT</button><button type="button">APPROVE</button></div></div>}
+          </motion.div>
+        </AnimatePresence>
       </div>
       <footer>⌨ ▱ ⌘ ✦</footer>
     </div>
