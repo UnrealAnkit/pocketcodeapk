@@ -138,6 +138,13 @@ button {
   color: #fff;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -1220,8 +1227,8 @@ footer small {
   }
 }
 
-/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES) */
-@media (max-width: 850px) {
+/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES UP TO 1000px) */
+@media (max-width: 980px) {
   .cursor {
     display: none;
   }
@@ -1235,13 +1242,13 @@ footer small {
     display: none;
   }
 
-  .button.small {
-    margin-left: auto; /* Push Try Beta to right side on mobile */
+  .nav-actions {
+    margin-left: auto; /* Bulletproof right alignment on all devices */
   }
 
   .menu {
     display: block;
-    margin-left: 10px; /* Sits right next to Try Beta button */
+    margin-left: 10px;
   }
 
   .nav.open .links {
