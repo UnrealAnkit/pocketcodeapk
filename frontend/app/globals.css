@@ -254,11 +254,45 @@ h1 em, h2 em {
   flex-wrap: wrap;
 }
 
+/* SHOWCASE TABS IN HERO */
+.showcase-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.showcase-tabs button {
+  padding: 8px 14px;
+  border: 1px solid #33343a;
+  border-radius: 6px;
+  background: #111215;
+  color: #777;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.showcase-tabs button:hover {
+  color: #fff;
+  border-color: #555;
+}
+
+.showcase-tabs button.active {
+  background: var(--amber);
+  color: #211706;
+  border-color: var(--amber);
+  box-shadow: 0 0 16px rgba(245, 165, 36, 0.25);
+}
+
 /* HERO PRODUCT CANVAS (DESKTOP + PHONE) */
 .hero-product {
   height: 510px;
   max-width: 1120px;
-  margin: 48px auto 0;
+  margin: 40px auto 0;
   position: relative;
   perspective: 1200px;
 }
@@ -625,7 +659,7 @@ h1 em, h2 em {
   animation: signal 2.5s linear infinite;
 }
 
-/* HOW IT WORKS SECTION & INTERACTIVE STAGE */
+/* HOW IT WORKS SECTION (3-STEP GRID) */
 .how-section {
   padding: 80px max(24px, calc((100vw - 1160px) / 2));
   text-align: center;
@@ -637,103 +671,45 @@ h1 em, h2 em {
   margin: 16px 0 24px;
 }
 
-.tab-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 24px;
-}
-
-.tab-buttons button {
-  padding: 10px 18px;
-  border: 1px solid #38393f;
-  border-radius: 6px;
-  background: #111215;
-  color: #888;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-buttons button:hover {
-  color: #fff;
-  border-color: #555;
-}
-
-.tab-buttons button.active {
-  background: var(--amber);
-  color: #211706;
-  border-color: var(--amber);
-  box-shadow: 0 0 20px rgba(245, 165, 36, 0.25);
-}
-
-.how-stage {
+.how-steps {
   display: grid;
-  grid-template-columns: 1fr 1.1fr;
-  gap: 50px;
-  align-items: center;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
   margin-top: 50px;
-  padding: 36px;
-  background: linear-gradient(145deg, #111216, #0c0d10);
+}
+
+.step-card {
+  padding: 30px 24px;
+  background: linear-gradient(145deg, #111216, #0d0e11);
   border: 1px solid #28292e;
-  border-radius: 16px;
+  border-radius: 12px;
   text-align: left;
+  transition: border-color 0.2s, transform 0.2s;
 }
 
-.how-phone-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.step-card:hover {
+  border-color: #44454d;
+  transform: translateY(-2px);
 }
 
-.how-phone-container .phone-shell {
-  transform: scale(1.05);
-  box-shadow: 0 0 50px rgba(245, 165, 36, 0.15);
-}
-
-.how-info-card small {
+.step-card span {
   color: var(--amber);
   font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
+  font-size: 12px;
+  font-weight: 700;
+  display: block;
 }
 
-.how-info-card h3 {
-  font-size: clamp(24px, 3vw, 36px);
-  margin: 12px 0 16px;
+.step-card h3 {
+  font-size: 20px;
+  margin: 14px 0 10px;
 }
 
-.how-info-card p {
+.step-card p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
-  margin-bottom: 28px;
-}
-
-.tab-pills {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pill {
-  padding: 7px 12px;
-  border: 1px solid #33343a;
-  border-radius: 4px;
-  color: #777;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.pill.active {
-  border-color: var(--amber);
-  color: var(--amber);
-  background: rgba(245, 165, 36, 0.08);
+  margin: 0;
 }
 
 /* TERMINAL & AGENT SECTIONS */
@@ -1306,22 +1282,9 @@ footer small {
     padding: 60px 16px;
   }
 
-  .how-stage {
+  .how-steps {
     grid-template-columns: 1fr;
-    gap: 30px;
-    padding: 24px 16px;
-  }
-
-  .how-phone-container .phone-shell {
-    transform: scale(0.92);
-  }
-
-  .how-info-card {
-    text-align: center;
-  }
-
-  .tab-pills {
-    justify-content: center;
+    gap: 16px;
   }
 
   .terminal-scene, .agent-scene, .oss {

@@ -9,26 +9,21 @@ const repo = "https://github.com/UnrealAnkit/pocketcodeapk";
 const screens = ["APPROVAL", "TERMINAL", "FILES", "GIT", "AGENT"];
 const capabilities = ["REAL PTY", "MULTI-TAB", "FILES", "GIT", "AGENTS", "NOTIFICATIONS", "MULTI-MACHINE", "TUNNELS"];
 
-const screenDetails = [
+const steps = [
   {
-    title: "Instant Approvals",
-    desc: "Approve shell commands, package installations, and system prompts directly from your phone screen."
+    num: "01",
+    title: "Local Daemon",
+    desc: "Runs lightweight CLI daemon alongside your local editor (VS Code, Cursor, Neovim, terminal)."
   },
   {
-    title: "Full PTY Terminal",
-    desc: "Execute real PTY commands, view output streams, and debug code remotely with zero latency."
+    num: "02",
+    title: "Encrypted Tunnel",
+    desc: "Establishes direct end-to-end P2P connection via Tailscale, devtunnel, or SSH reverse tunnels."
   },
   {
-    title: "File Explorer",
-    desc: "Browse your project directory tree, search workspace files, and inspect changes on the move."
-  },
-  {
-    title: "Git Workflow",
-    desc: "Review diffs, stage files, and push commits with a single tap from anywhere."
-  },
-  {
-    title: "AI Agent Oversight",
-    desc: "Monitor Claude & AI coding agents in real-time with full oversight and emergency pause."
+    num: "03",
+    title: "Pocket App",
+    desc: "Receive real-time terminal output, review git diffs, and approve AI agent commands on your phone."
   }
 ];
 
@@ -53,7 +48,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveTab(prev => (prev + 1) % screens.length);
-    }, 3800);
+    }, 4000);
     return () => clearInterval(timer);
   }, []);
 
@@ -65,7 +60,7 @@ export default function Home() {
       <div className="atmosphere"><i /><i /></div>
       <Navigation />
       <main id="top">
-        {/* HERO SECTION */}
+        {/* HERO SECTION WITH SINGLE SHOWCASE */}
         <section className="hero">
           <div className="hero-copy">
             <p className="kicker">● OPEN SOURCE REMOTE CONTROL FOR YOUR DEV ENVIRONMENT</p>
@@ -75,7 +70,17 @@ export default function Home() {
               <a onPointerEnter={() => setCursor(c => ({ ...c, label: "GO" }))} onPointerLeave={() => setCursor(c => ({ ...c, label: "" }))} className="button" href={repo} target="_blank" rel="noreferrer">TRY THE BETA <b>→</b></a>
               <a onPointerEnter={() => setCursor(c => ({ ...c, label: "VIEW" }))} onPointerLeave={() => setCursor(c => ({ ...c, label: "" }))} className="button quiet" href={repo} target="_blank" rel="noreferrer">VIEW ON GITHUB</a>
             </div>
+
+            {/* INTERACTIVE SHOWCASE SCREEN SWITCHER */}
+            <div className="showcase-tabs">
+              {screens.map((tab, idx) => (
+                <button key={tab} type="button" className={activeTab === idx ? "active" : ""} onClick={() => setActiveTab(idx)}>
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
+
           <div className="hero-product">
             <div className="desktop-ui">
               <Desktop />
@@ -92,36 +97,20 @@ export default function Home() {
           </div>
         </section>
 
-        {/* HOW IT WORKS SECTION */}
+        {/* HOW IT WORKS ARCHITECTURE */}
         <section id="how" className="how-section">
           <header className="how-header">
-            <p className="kicker">● HOW IT WORKS</p>
+            <p className="kicker">● ARCHITECTURE</p>
             <h2>Your machine doesn&apos;t need a browser.<br /><em>It just needs a way to reach you.</em></h2>
-            <div className="tab-buttons">
-              {screens.map((tab, idx) => (
-                <button key={tab} type="button" className={activeTab === idx ? "active" : ""} onClick={() => setActiveTab(idx)}>
-                  {tab}
-                </button>
-              ))}
-            </div>
           </header>
-
-          <div className="how-stage">
-            <div className="how-phone-container">
-              <Phone activeIndex={activeTab} />
-            </div>
-            <div className="how-info-card">
-              <small>FEATURE {activeTab + 1} OF {screens.length}</small>
-              <h3>{screenDetails[activeTab].title}</h3>
-              <p>{screenDetails[activeTab].desc}</p>
-              <div className="tab-pills">
-                {screens.map((name, i) => (
-                  <span key={name} onClick={() => setActiveTab(i)} className={activeTab === i ? "pill active" : "pill"}>
-                    {name}
-                  </span>
-                ))}
+          <div className="how-steps">
+            {steps.map(step => (
+              <div key={step.num} className="step-card">
+                <span>{step.num}</span>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
               </div>
-            </div>
+            ))}
           </div>
         </section>
 
