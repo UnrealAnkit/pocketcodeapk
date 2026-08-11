@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { spawn, ChildProcess } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 
 export interface PtyTab {
   id: string;
@@ -26,7 +27,9 @@ export interface PtyTab {
 }
 
 interface ShellProc {
-  proc: ChildProcess;
+  /** POSIX uses the Python PTY helper; Windows uses ConPTY through node-pty. */
+  proc?: ChildProcess;
+  pty?: pty.IPty;
   alive: boolean;
 }
 
@@ -79,6 +82,40 @@ export class PtyManager extends EventEmitter {
     const cols = opts?.cols ?? 220;
     const rows = opts?.rows ?? 50;
 
+    const env = {
+      ...process.env,
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor',
+      COLUMNS: String(cols),
+      LINES: String(rows),
+      LANG: process.env.LANG ?? 'en_US.UTF-8',
+    };
+
+    if (os.platform() === 'win32') {
+      // Claude Code, Codex, and terminal UIs require a real console. Piped
+      // stdio makes them silently wait/fail and also used to leak our POSIX
+      // resize sentinel into PowerShell as a literal `RESIZE:cols:rows` command.
+      // Windows 10 1809+ exposes ConPTY; the prebuilt package wraps it without
+      // requiring the user to install a native compiler toolchain.
+      const conpty = pty.spawn(shell, [], {
+        cwd,
+        env,
+        name: 'xterm-256color',
+        cols,
+        rows,
+        useConpty: true,
+      });
+      const entry: ShellProc = { pty: conpty, alive: true };
+      this.tabs.set(id, entry);
+      this.titles.set(id, opts?.title ?? `bash-${this.tabs.size}`);
+      conpty.onData((data) => this.onOutput(id, data));
+      conpty.onExit(({ exitCode }) => {
+        entry.alive = false;
+        this.emit('exit', id, exitCode);
+      });
+      return id;
+    }
+
     let spawnCmd: string;
     let spawnArgs: string[];
 
@@ -87,22 +124,11 @@ export class PtyManager extends EventEmitter {
       // It accepts: shell, cols, rows as positional args.
       spawnCmd = 'python3';
       spawnArgs = [this.helperPath, shell, String(cols), String(rows)];
-    } else {
-      // Windows: no PTY shim, fall back to raw shell
-      spawnCmd = shell;
-      spawnArgs = [];
-    }
+    } else throw new Error(`Unsupported platform: ${os.platform()}`);
 
     const proc = spawn(spawnCmd, spawnArgs, {
       cwd,
-      env: {
-        ...process.env,
-        TERM: 'xterm-256color',
-        COLORTERM: 'truecolor',
-        COLUMNS: String(cols),
-        LINES: String(rows),
-        LANG: process.env.LANG ?? 'en_US.UTF-8',
-      },
+      env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -112,8 +138,7 @@ export class PtyManager extends EventEmitter {
 
     const onOutput = (chunk: Buffer) => {
       const str = chunk.toString('utf8');
-      this.appendToBuffer(id, str);
-      this.emit('data', id, str);
+      this.onOutput(id, str);
     };
     proc.stdout?.on('data', onOutput);
     proc.stderr?.on('data', onOutput);
@@ -128,6 +153,11 @@ export class PtyManager extends EventEmitter {
     });
 
     return id;
+  }
+
+  private onOutput(id: string, str: string) {
+    this.appendToBuffer(id, str);
+    this.emit('data', id, str);
   }
 
   private appendToBuffer(id: string, str: string) {
@@ -147,17 +177,20 @@ export class PtyManager extends EventEmitter {
 
   write(id: string, data: string) {
     const s = this.tabs.get(id);
-    if (s?.alive && s.proc.stdin) {
+    if (s?.alive && s.pty) {
+      s.pty.write(data);
+    } else if (s?.alive && s.proc?.stdin) {
       s.proc.stdin.write(data);
     }
   }
 
   resize(id: string, cols: number, rows: number) {
-    // Out-of-band control sentinel.  pty-helper.py intercepts this in its
-    // stdin relay and calls set_winsize() + SIGWINCH instead of forwarding
-    // it as keystrokes (the old ANSI escape got typed into the shell).
     const s = this.tabs.get(id);
-    if (s?.alive && s.proc.stdin) {
+    if (s?.alive && s.pty) {
+      s.pty.resize(cols, rows);
+    } else if (s?.alive && s.proc?.stdin) {
+      // Out-of-band control sentinel. pty-helper.py intercepts this and
+      // applies SIGWINCH instead of forwarding it as shell keystrokes.
       s.proc.stdin.write(`\x00RESIZE:${cols}:${rows}\n`);
     }
   }
@@ -170,7 +203,10 @@ export class PtyManager extends EventEmitter {
     const s = this.tabs.get(id);
     if (!s) return;
     s.alive = false;
-    try { s.proc.kill('SIGHUP'); } catch { /* already dead */ }
+    try {
+      if (s.pty) s.pty.kill();
+      else s.proc?.kill('SIGHUP');
+    } catch { /* already dead */ }
     this.tabs.delete(id);
     this.titles.delete(id);
     this.buffers.delete(id);
