@@ -125,14 +125,25 @@ export class Server extends EventEmitter {
     });
   }
 
-  rebindAll() {
+  rebindAll(): Promise<number> {
     this.bindHost = '0.0.0.0';
-    // ponytail: if already listening, close and re-listen. Cheap and only happens once on tailscale-ip start.
-    if (this.http.listening) {
-      this.http.close(() => {
-        this.http.listen(this.opts.port, this.bindHost);
-      });
-    }
+    const resolvePort = (): number => {
+      const addr = this.http.address();
+      return addr && typeof addr === 'object' ? addr.port : this.opts.port;
+    };
+    // If the server started on port 0, the first loopback bind picked an
+    // ephemeral port. Rebinding to 0.0.0.0 with opts.port=0 chooses a new
+    // ephemeral port, so callers must receive the rebound port for local/LAN
+    // pairing QR payloads to stay accurate.
+    return new Promise((resolve) => {
+      if (this.http.listening) {
+        this.http.close(() => {
+          this.http.listen(this.opts.port, this.bindHost, () => resolve(resolvePort()));
+        });
+      } else {
+        this.http.listen(this.opts.port, this.bindHost, () => resolve(resolvePort()));
+      }
+    });
   }
 
   close() {

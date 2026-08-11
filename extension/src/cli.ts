@@ -97,12 +97,12 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     maxTerminals: args.maxTerminals,
   });
 
-  const localPort = await server.listen();
+  let localPort = await server.listen();
 
   const provider = await detect(args.tunnel, { localHost: args.host });
   // local / tailscale-ip need non-loopback bind so the phone can reach us.
   if (provider.name === 'local' || provider.name === 'tailscale-ip') {
-    server.rebindAll();
+    localPort = await server.rebindAll();
   }
 
   const pub = await provider.start(localPort);
