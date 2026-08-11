@@ -36,6 +36,19 @@
   term.loadAddon(fitAddon);
   term.open(document.getElementById('term'));
 
+  // Android keyboards treat xterm's hidden textarea like a normal sentence
+  // field unless we opt out. That leads to autocorrect/composing-text sending
+  // whole suggestion fragments ("na" -> random words) instead of raw keystrokes.
+  // Mark it as a terminal-style input so Gboard stays literal.
+  if (term.textarea) {
+    term.textarea.setAttribute('autocomplete', 'off');
+    term.textarea.setAttribute('autocorrect', 'off');
+    term.textarea.setAttribute('autocapitalize', 'off');
+    term.textarea.setAttribute('spellcheck', 'false');
+    term.textarea.setAttribute('enterkeyhint', 'enter');
+    term.textarea.setAttribute('aria-autocomplete', 'none');
+  }
+
   // Full-screen CLIs switch to the terminal's alternate buffer (DECSET 47,
   // 1047, 1049). That buffer deliberately has no scrollback, which makes
   // desktop TUIs such as OpenCode/Grok impossible to review on a phone.
