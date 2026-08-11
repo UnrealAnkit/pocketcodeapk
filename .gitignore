@@ -19,3 +19,5 @@ local.properties
 # Contain a live pairing token
 tools/pairing.local.json
 tools/pairing-qr.png
+tools/*.log
+tools/*.err

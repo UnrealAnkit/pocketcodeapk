@@ -1,4 +1,4 @@
-import "../styles.css";
+import "./globals.css";
 
 export const metadata = {
   title: "PocketCode — Control your code editor from your phone",
