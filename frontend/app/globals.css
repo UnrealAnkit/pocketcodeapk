@@ -138,6 +138,13 @@ button {
   color: #fff;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -455,6 +462,7 @@ h1 em, h2 em {
   font-family: "JetBrains Mono", monospace;
   font-size: 8px;
   letter-spacing: 0.6px;
+  margin-bottom: 6px;
 }
 
 .approval-card {
@@ -617,7 +625,7 @@ h1 em, h2 em {
   animation: signal 2.5s linear infinite;
 }
 
-/* HOW IT WORKS SECTION */
+/* HOW IT WORKS SECTION & INTERACTIVE STAGE */
 .how-section {
   padding: 80px max(24px, calc((100vw - 1160px) / 2));
   text-align: center;
@@ -660,6 +668,72 @@ h1 em, h2 em {
   color: #211706;
   border-color: var(--amber);
   box-shadow: 0 0 20px rgba(245, 165, 36, 0.25);
+}
+
+.how-stage {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 50px;
+  align-items: center;
+  margin-top: 50px;
+  padding: 36px;
+  background: linear-gradient(145deg, #111216, #0c0d10);
+  border: 1px solid #28292e;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.how-phone-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.how-phone-container .phone-shell {
+  transform: scale(1.05);
+  box-shadow: 0 0 50px rgba(245, 165, 36, 0.15);
+}
+
+.how-info-card small {
+  color: var(--amber);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.how-info-card h3 {
+  font-size: clamp(24px, 3vw, 36px);
+  margin: 12px 0 16px;
+}
+
+.how-info-card p {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.tab-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 7px 12px;
+  border: 1px solid #33343a;
+  border-radius: 4px;
+  color: #777;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pill.active {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(245, 165, 36, 0.08);
 }
 
 /* TERMINAL & AGENT SECTIONS */
@@ -811,9 +885,10 @@ h1 em, h2 em {
 .feature-rail {
   display: flex;
   gap: 16px;
-  width: max-content;
-  margin: 45px 0 0;
-  padding: 0 24px;
+  width: 100%;
+  max-width: 1160px;
+  margin: 40px auto 0;
+  padding: 10px 24px 25px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
@@ -821,12 +896,17 @@ h1 em, h2 em {
 
 .feature-rail article {
   scroll-snap-align: start;
-  width: 280px;
-  height: 250px;
+  flex: 0 0 270px;
+  min-height: 245px;
   padding: 22px;
   background: linear-gradient(145deg, #151619, #0f1012);
   border: 1px solid #28292e;
-  border-radius: 8px;
+  border-radius: 10px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.feature-rail article:hover {
+  border-color: #44454d;
 }
 
 .feature-rail article span {
@@ -837,11 +917,12 @@ h1 em, h2 em {
 
 .feature-rail article b {
   display: block;
-  margin: 40px 0 10px;
+  margin: 35px 0 10px;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.03em;
+  word-break: break-word;
 }
 
 .feature-rail article i {
@@ -1146,28 +1227,28 @@ footer small {
   }
 }
 
-/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES) */
-@media (max-width: 850px) {
+/* RESPONSIVE DESIGN (MOBILE & TABLET FIXES UP TO 1000px) */
+@media (max-width: 980px) {
   .cursor {
     display: none;
   }
 
   .nav {
     height: 64px;
-    padding: 0 20px;
+    padding: 0 16px;
   }
 
   .links {
     display: none;
   }
 
-  .menu {
-    display: block;
-    margin-left: auto;
+  .nav-actions {
+    margin-left: auto; /* Bulletproof right alignment on all devices */
   }
 
-  .button.small {
-    margin-left: 0;
+  .menu {
+    display: block;
+    margin-left: 10px;
   }
 
   .nav.open .links {
@@ -1222,28 +1303,58 @@ footer small {
   }
 
   .how-section {
-    padding: 60px 20px;
+    padding: 60px 16px;
+  }
+
+  .how-stage {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 24px 16px;
+  }
+
+  .how-phone-container .phone-shell {
+    transform: scale(0.92);
+  }
+
+  .how-info-card {
+    text-align: center;
+  }
+
+  .tab-pills {
+    justify-content: center;
   }
 
   .terminal-scene, .agent-scene, .oss {
     grid-template-columns: 1fr;
     gap: 36px;
-    padding: 60px 20px;
+    padding: 60px 16px;
   }
 
   .terminal-scene pre {
     min-height: 250px;
-    padding: 20px;
+    padding: 18px;
     font-size: 11px;
   }
 
   .feature-rail {
-    width: 100%;
-    padding: 0 20px 15px;
+    padding: 0 16px 20px;
+    gap: 12px;
+  }
+
+  .feature-rail article {
+    flex: 0 0 250px;
+    max-width: 82vw;
+    min-height: 210px;
+    padding: 18px;
+  }
+
+  .feature-rail article b {
+    font-size: 20px;
+    margin: 24px 0 8px;
   }
 
   .roadmap {
-    padding: 60px 20px;
+    padding: 60px 16px;
   }
 
   .line {
@@ -1269,12 +1380,12 @@ footer small {
   }
 
   .closing {
-    padding: 60px 20px;
+    padding: 60px 16px;
   }
 
   footer {
     flex-wrap: wrap;
-    padding: 24px 20px;
+    padding: 24px 16px;
     gap: 14px;
   }
 
